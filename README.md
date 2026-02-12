@@ -22,7 +22,7 @@ Spiritual successor to [ZoteroQuickLook](https://github.com/mronkko/ZoteroQuickL
 
 ## Installation
 
-1. Download the latest `.xpi` file from the [Releases](https://github.com/guillaumedsde/quicklook-zotero7/releases) page
+1. Download the latest `.xpi` file from the [Releases](https://github.com/gchapron/zotero7quicklook/releases) page
 2. In Zotero, go to **Tools → Add-ons**
 3. Click the gear icon → **Install Add-on From File...**
 4. Select the downloaded `.xpi` file
@@ -33,18 +33,16 @@ Spiritual successor to [ZoteroQuickLook](https://github.com/mronkko/ZoteroQuickL
 No build system or dependencies required — the plugin is plain JavaScript.
 
 ```bash
-git clone https://github.com/guillaumedsde/quicklook-zotero7.git
-cd quicklook-zotero7
-zip -r quicklook-zotero7.xpi manifest.json bootstrap.js quicklook.js prefs.js
+git clone https://github.com/gchapron/zotero7quicklook.git
+cd zotero7quicklook
+zip -r zotero7quicklook.xpi manifest.json bootstrap.js quicklook.js prefs.js
 ```
 
-The resulting `quicklook-zotero7.xpi` can be installed in Zotero as described above.
+The resulting `zotero7quicklook.xpi` can be installed in Zotero as described above.
 
 ## How it works
 
 The plugin registers a keyboard listener on Zotero's items tree. When you press Space, it resolves the file path of the selected item's attachment and launches `/usr/bin/qlmanage -p <file>` as a subprocess. The subprocess handle is retained so that pressing Space again (or Escape) kills the process and closes the preview.
-
-Browse mode works by closing the current preview, letting the arrow key propagate to change the selection, then reopening the preview on the newly selected item.
 
 ## License
 
