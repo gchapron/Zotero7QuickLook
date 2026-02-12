@@ -16,7 +16,7 @@ guard CommandLine.arguments.count >= 3 else {
 
 let inputPath = CommandLine.arguments[1]
 let outputPath = CommandLine.arguments[2]
-let columns = CommandLine.arguments.count > 3 ? Int(CommandLine.arguments[3]) ?? 5 : 5
+let maxColumns = CommandLine.arguments.count > 3 ? Int(CommandLine.arguments[3]) ?? 5 : 5
 let thumbWidth = CommandLine.arguments.count > 4 ? Int(CommandLine.arguments[4]) ?? 200 : 200
 
 guard let pdfURL = CFURLCreateWithFileSystemPath(nil, inputPath as CFString, .cfurlposixPathStyle, false),
@@ -30,6 +30,13 @@ guard pageCount > 0 else {
     fputs("Error: PDF has no pages\n", stderr)
     exit(1)
 }
+
+// Adapt columns to page count so few-page PDFs fill the width
+let columns = min(pageCount, maxColumns)
+
+// Scale render resolution: fewer columns = each thumbnail displayed larger = needs more pixels
+// With 5 columns, render at thumbWidth*2 (400px). With 1 column, render at thumbWidth*10 (2000px).
+let renderWidth = 500 * maxColumns / columns
 
 // Render each page as a PNG and encode as base64
 func renderPage(_ pageNum: Int, width: Int) -> String? {
@@ -111,7 +118,7 @@ body {
 """
 
 for i in 1...pageCount {
-    if let b64 = renderPage(i, width: thumbWidth * 2) {
+    if let b64 = renderPage(i, width: renderWidth) {
         html += """
         <div class="page">
         <img src="data:image/png;base64,\(b64)">

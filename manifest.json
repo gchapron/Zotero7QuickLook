@@ -1,7 +1,7 @@
 {
     "manifest_version": 2,
     "name": "Zotero7QuickLook",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "description": "Preview attachments with macOS QuickLook by pressing Space",
     "homepage_url": "https://github.com/gchapron/zotero7quicklook",
     "author": "Guillaume Chapron",
