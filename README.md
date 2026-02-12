@@ -7,7 +7,7 @@ Spiritual successor to [ZoteroQuickLook](https://github.com/mronkko/ZoteroQuickL
 ## Features
 
 - **Space** — Toggle QuickLook preview on the selected item
-- **Option+Space** — Preview a PDF as a contact sheet (grid of all page thumbnails)
+- **Option+Space** — Preview a PDF as a contact sheet (grid of all page thumbnails, adaptive layout for few-page PDFs)
 - **Cmd+Y** — Alternative toggle shortcut
 - **Escape** — Close the preview
 - **Right-click → Quick Look** — Context menu entry
@@ -53,7 +53,7 @@ The resulting `zotero7quicklook.xpi` can be installed in Zotero as described abo
 
 The plugin registers a keyboard listener on Zotero's items tree. When you press Space, it resolves the file path of the selected item's attachment and launches `/usr/bin/qlmanage -p <file>` as a subprocess. The subprocess handle is retained so that pressing Space again (or Escape) kills the process and closes the preview.
 
-The contact sheet feature (Option+Space) uses a pre-compiled universal binary (arm64 + x86_64) that renders all PDF pages as thumbnails in a scrollable HTML grid using CoreGraphics. The binary is bundled in the `.xpi` and deployed to a temp directory on first use. The generated HTML file is then previewed via QuickLook.
+The contact sheet feature (Option+Space) uses a pre-compiled universal binary (arm64 + x86_64) that renders all PDF pages as thumbnails in a scrollable HTML grid using CoreGraphics. The binary is bundled in the `.xpi` and deployed to a temp directory on first use. The generated HTML file is then previewed via QuickLook. The layout adapts to the number of pages: PDFs with few pages (1–4) use fewer columns and higher-resolution thumbnails so they fill the preview width instead of leaving empty space.
 
 ## License
 
