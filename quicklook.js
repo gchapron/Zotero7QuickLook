@@ -269,7 +269,7 @@ var QuickLook = {
 		try {
 			let proc = await Subprocess.call({
 				command: binary,
-				arguments: [pdfPath, outputPath, "6", "200"],
+				arguments: [pdfPath, outputPath, "5", "200"],
 			});
 			let result = await proc.wait();
 			if (result.exitCode !== 0) {

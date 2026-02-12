@@ -16,7 +16,7 @@ guard CommandLine.arguments.count >= 3 else {
 
 let inputPath = CommandLine.arguments[1]
 let outputPath = CommandLine.arguments[2]
-let columns = CommandLine.arguments.count > 3 ? Int(CommandLine.arguments[3]) ?? 6 : 6
+let columns = CommandLine.arguments.count > 3 ? Int(CommandLine.arguments[3]) ?? 5 : 5
 let thumbWidth = CommandLine.arguments.count > 4 ? Int(CommandLine.arguments[4]) ?? 200 : 200
 
 guard let pdfURL = CFURLCreateWithFileSystemPath(nil, inputPath as CFString, .cfurlposixPathStyle, false),
@@ -80,14 +80,13 @@ var html = """
 body {
     background: #f0f0f0;
     margin: 0;
-    padding: 20px;
+    padding: 12px;
     font-family: -apple-system, BlinkMacSystemFont, sans-serif;
 }
 .grid {
     display: grid;
-    grid-template-columns: repeat(\(columns), \(thumbWidth)px);
+    grid-template-columns: repeat(\(columns), 1fr);
     gap: 12px;
-    justify-content: center;
 }
 .page {
     background: white;
