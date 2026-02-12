@@ -11,8 +11,8 @@ var QuickLook = {
 	_proc: null,
 	_isActive: false,
 	_launching: false,
-	_isBrowseMode: false,
 	_tempDir: null,
+	_contactSheetBinary: null,
 
 	// Per-window cleanup tracking
 	_windowListeners: new Map(),
@@ -71,7 +71,7 @@ var QuickLook = {
 
 		let listeners = { keydownHandler, itemsTree };
 
-		// Context menu item
+		// Context menu items
 		let menuPopup = doc.getElementById("zotero-itemmenu");
 		if (menuPopup) {
 			let menuItem = doc.createXULElement("menuitem");
@@ -84,6 +84,17 @@ var QuickLook = {
 				}
 			});
 			menuPopup.appendChild(menuItem);
+
+			let contactMenuItem = doc.createXULElement("menuitem");
+			contactMenuItem.id = "quicklook-contactsheet-menu-item";
+			contactMenuItem.setAttribute("label", "Quick Look Contact Sheet");
+			contactMenuItem.addEventListener("command", () => {
+				let items = window.ZoteroPane.getSelectedItems();
+				if (items.length > 0) {
+					this._openContactSheet(items);
+				}
+			});
+			menuPopup.appendChild(contactMenuItem);
 
 			let popupShowHandler = () => this._onMenuShowing(doc);
 			menuPopup.addEventListener("popupshowing", popupShowHandler);
@@ -107,7 +118,7 @@ var QuickLook = {
 			true
 		);
 
-		// Remove context menu listener and element
+		// Remove context menu listener and elements
 		if (listeners.menuPopup && listeners.popupShowHandler) {
 			listeners.menuPopup.removeEventListener(
 				"popupshowing",
@@ -118,6 +129,10 @@ var QuickLook = {
 		let doc = window.document;
 		let menuItem = doc.getElementById("quicklook-menu-item");
 		if (menuItem) menuItem.remove();
+		let contactMenuItem = doc.getElementById(
+			"quicklook-contactsheet-menu-item"
+		);
+		if (contactMenuItem) contactMenuItem.remove();
 
 		this._windowListeners.delete(window);
 		this.log("Removed from window");
@@ -127,9 +142,14 @@ var QuickLook = {
 
 	_onKeyDown(event, window) {
 		let isSpace =
-			event.key === " " &&
+			event.code === "Space" &&
 			!event.ctrlKey &&
 			!event.altKey &&
+			!event.metaKey;
+		let isOptionSpace =
+			event.code === "Space" &&
+			event.altKey &&
+			!event.ctrlKey &&
 			!event.metaKey;
 		let isCmdY =
 			event.key === "y" &&
@@ -137,30 +157,35 @@ var QuickLook = {
 			!event.ctrlKey &&
 			!event.altKey;
 		let isEscape = event.key === "Escape";
-		let isArrowUp =
-			event.key === "ArrowUp" &&
-			!event.ctrlKey &&
-			!event.altKey &&
-			!event.metaKey;
-		let isArrowDown =
-			event.key === "ArrowDown" &&
-			!event.ctrlKey &&
-			!event.altKey &&
-			!event.metaKey;
 
+		// Option+Space: contact sheet mode
+		if (isOptionSpace) {
+			event.preventDefault();
+			event.stopPropagation();
+
+			if (this._isActive) {
+				this._closeQuickLook();
+			} else {
+				let items = window.ZoteroPane.getSelectedItems();
+				if (items.length > 0) {
+					this._openContactSheet(items);
+				}
+			}
+			return;
+		}
+
+		// Space or Cmd+Y: normal QuickLook
 		if (isSpace || isCmdY) {
 			event.preventDefault();
 			event.stopPropagation();
 
 			if (this._isActive) {
 				this._closeQuickLook();
-				this._isBrowseMode = false;
 			} else {
 				let items = window.ZoteroPane.getSelectedItems();
 				if (items.length > 0) {
 					this._openQuickLook(items);
 				}
-				this._isBrowseMode = false;
 			}
 			return;
 		}
@@ -168,32 +193,10 @@ var QuickLook = {
 		if (isEscape) {
 			if (this._isActive) {
 				this._closeQuickLook();
-				this._isBrowseMode = false;
 				event.preventDefault();
 				event.stopPropagation();
 			}
 			return;
-		}
-
-		// Arrow keys: browse mode
-		if (
-			(isArrowUp || isArrowDown) &&
-			(this._isActive || this._isBrowseMode)
-		) {
-			// Let arrow propagate so Zotero navigates to next/prev item,
-			// then reopen QuickLook after selection changes
-			if (this._isActive) {
-				this._closeQuickLook();
-			}
-
-			window.setTimeout(() => {
-				let items = window.ZoteroPane.getSelectedItems();
-				if (items.length > 0) {
-					this._openQuickLook(items).then((success) => {
-						this._isBrowseMode = !success;
-					});
-				}
-			}, 50);
 		}
 	},
 
@@ -201,10 +204,18 @@ var QuickLook = {
 
 	_onMenuShowing(doc) {
 		let menuItem = doc.getElementById("quicklook-menu-item");
-		if (!menuItem) return;
-
+		let contactMenuItem = doc.getElementById(
+			"quicklook-contactsheet-menu-item"
+		);
 		let items = doc.defaultView.ZoteroPane.getSelectedItems();
-		menuItem.hidden = items.length === 0;
+		let hasItems = items.length > 0;
+
+		if (menuItem) menuItem.hidden = !hasItems;
+
+		// Only show contact sheet option if there are PDF attachments
+		if (contactMenuItem) {
+			contactMenuItem.hidden = !hasItems;
+		}
 	},
 
 	// ── QuickLook open/close ──────────────────────────────────────────
@@ -220,6 +231,101 @@ var QuickLook = {
 
 		await this._launchQlmanage(paths);
 		return true;
+	},
+
+	async _openContactSheet(items) {
+		if (this._launching) return false;
+
+		// Get only PDF file paths
+		let paths = await this._getFilePaths(items);
+		let pdfPaths = paths.filter(
+			(p) => p.toLowerCase().endsWith(".pdf")
+		);
+
+		if (pdfPaths.length === 0) {
+			this.log("No PDF files for contact sheet");
+			return false;
+		}
+
+		// Ensure the contact sheet binary is deployed
+		let binary = await this._ensureContactSheetBinary();
+		if (!binary) {
+			this.log("Contact sheet binary not available");
+			return false;
+		}
+
+		// Generate contact sheet for the first PDF
+		let pdfPath = pdfPaths[0];
+		let tempDir = this._getTempDirPath();
+		await IOUtils.makeDirectory(tempDir, { ignoreExisting: true });
+		let outputPath = PathUtils.join(tempDir, "contactsheet.html");
+
+		const { Subprocess } = ChromeUtils.importESModule(
+			"resource://gre/modules/Subprocess.sys.mjs"
+		);
+
+		this.log("Generating contact sheet for: " + pdfPath);
+
+		try {
+			let proc = await Subprocess.call({
+				command: binary,
+				arguments: [pdfPath, outputPath, "6", "200"],
+			});
+			let result = await proc.wait();
+			if (result.exitCode !== 0) {
+				this.log(
+					"Contact sheet generation failed with code " +
+						result.exitCode
+				);
+				return false;
+			}
+		} catch (e) {
+			this.log("Contact sheet generation error: " + e);
+			return false;
+		}
+
+		// QuickLook the generated contact sheet HTML
+		await this._launchQlmanage([outputPath]);
+		return true;
+	},
+
+	async _ensureContactSheetBinary() {
+		if (this._contactSheetBinary) {
+			if (await IOUtils.exists(this._contactSheetBinary)) {
+				return this._contactSheetBinary;
+			}
+		}
+
+		let tempDir = this._getTempDirPath();
+		await IOUtils.makeDirectory(tempDir, { ignoreExisting: true });
+
+		let binaryPath = PathUtils.join(tempDir, "contactsheet");
+
+		// Check if already deployed
+		if (await IOUtils.exists(binaryPath)) {
+			this._contactSheetBinary = binaryPath;
+			return binaryPath;
+		}
+
+		// Copy the pre-compiled binary from the plugin bundle to temp
+		this.log("Deploying contact sheet binary...");
+
+		try {
+			let binaryURI = this.rootURI + "contactsheet";
+			let response = await fetch(binaryURI);
+			let data = await response.arrayBuffer();
+			await IOUtils.write(binaryPath, new Uint8Array(data));
+
+			// Make executable
+			await IOUtils.setPermissions(binaryPath, 0o755);
+
+			this.log("Contact sheet binary deployed");
+			this._contactSheetBinary = binaryPath;
+			return binaryPath;
+		} catch (e) {
+			this.log("Failed to deploy contact sheet binary: " + e);
+			return null;
+		}
 	},
 
 	async _launchQlmanage(filePaths) {
