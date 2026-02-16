@@ -4,6 +4,8 @@ A Zotero 7/8 plugin for macOS that lets you preview attachments with QuickLook b
 
 Spiritual successor to [ZoteroQuickLook](https://github.com/mronkko/ZoteroQuickLook), which supported Zotero 4–6 but broke with Zotero 7's new plugin architecture.
 
+![Zotero7QuickLook screenshot](docs/screenshot.png)
+
 ## Features
 
 - **Space** — Toggle QuickLook preview on the selected item
