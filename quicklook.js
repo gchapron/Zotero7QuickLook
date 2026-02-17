@@ -145,11 +145,18 @@ var QuickLook = {
 			event.code === "Space" &&
 			!event.ctrlKey &&
 			!event.altKey &&
-			!event.metaKey;
+			!event.metaKey &&
+			!event.shiftKey;
 		let isOptionSpace =
 			event.code === "Space" &&
 			event.altKey &&
 			!event.ctrlKey &&
+			!event.metaKey;
+		let isShiftSpace =
+			event.code === "Space" &&
+			event.shiftKey &&
+			!event.ctrlKey &&
+			!event.altKey &&
 			!event.metaKey;
 		let isCmdY =
 			event.key === "y" &&
@@ -157,6 +164,22 @@ var QuickLook = {
 			!event.ctrlKey &&
 			!event.altKey;
 		let isEscape = event.key === "Escape";
+
+		// Shift+Space: note preview
+		if (isShiftSpace) {
+			event.preventDefault();
+			event.stopPropagation();
+
+			if (this._isActive) {
+				this._closeQuickLook();
+			} else {
+				let items = window.ZoteroPane.getSelectedItems();
+				if (items.length > 0) {
+					this._openNotePreview(items);
+				}
+			}
+			return;
+		}
 
 		// Option+Space: contact sheet mode
 		if (isOptionSpace) {
@@ -223,9 +246,22 @@ var QuickLook = {
 	async _openQuickLook(items) {
 		if (this._launching) return false;
 
-		let paths = await this._getFilePaths(items);
+		let paths = await this._getPreviewPath(items);
 		if (paths.length === 0) {
 			this.log("No files to preview");
+			return false;
+		}
+
+		await this._launchQlmanage(paths);
+		return true;
+	},
+
+	async _openNotePreview(items) {
+		if (this._launching) return false;
+
+		let paths = await this._getNotePaths(items);
+		if (paths.length === 0) {
+			this.log("No notes to preview");
 			return false;
 		}
 
@@ -237,7 +273,7 @@ var QuickLook = {
 		if (this._launching) return false;
 
 		// Get only PDF file paths
-		let paths = await this._getFilePaths(items);
+		let paths = await this._getPreviewPath(items);
 		let pdfPaths = paths.filter(
 			(p) => p.toLowerCase().endsWith(".pdf")
 		);
@@ -372,7 +408,7 @@ var QuickLook = {
 
 	// ── File path resolution ──────────────────────────────────────────
 
-	async _getFilePaths(items) {
+	async _getPreviewPath(items) {
 		let paths = [];
 
 		for (let item of items) {
@@ -383,14 +419,43 @@ var QuickLook = {
 				let path = await this._writeNoteToTempFile(item);
 				if (path) paths.push(path);
 			} else {
-				// Regular item: collect child attachments and notes
+				// Regular item: prefer PDF, fall back to first attachment
 				let attachmentIDs = item.getAttachments(false);
+				let pdfPath = null;
+				let fallbackPath = null;
+
 				for (let attID of attachmentIDs) {
 					let attachment = Zotero.Items.get(attID);
+					if (attachment.isNote()) continue;
 					let path = await this._getAttachmentPath(attachment);
-					if (path) paths.push(path);
+					if (!path) continue;
+
+					if (path.toLowerCase().endsWith(".pdf")) {
+						pdfPath = path;
+						break;
+					}
+					if (!fallbackPath) {
+						fallbackPath = path;
+					}
 				}
 
+				let chosen = pdfPath || fallbackPath;
+				if (chosen) paths.push(chosen);
+			}
+		}
+
+		return paths;
+	},
+
+	async _getNotePaths(items) {
+		let paths = [];
+
+		for (let item of items) {
+			if (item.isNote()) {
+				let path = await this._writeNoteToTempFile(item);
+				if (path) paths.push(path);
+			} else if (!item.isAttachment()) {
+				// Regular item: collect all child notes
 				let noteIDs = item.getNotes(false);
 				for (let noteID of noteIDs) {
 					let note = Zotero.Items.get(noteID);

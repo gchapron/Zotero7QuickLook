@@ -8,14 +8,15 @@ Spiritual successor to [ZoteroQuickLook](https://github.com/mronkko/ZoteroQuickL
 
 ## Features
 
-- **Space** — Toggle QuickLook preview on the selected item
+- **Space** — Toggle QuickLook preview on the selected item (prefers PDF over other attachments)
+- **Shift+Space** — Preview the notes attached to the selected item
 - **Option+Space** — Preview a PDF as a contact sheet (grid of all page thumbnails, adaptive layout for few-page PDFs)
 - **Cmd+Y** — Alternative toggle shortcut
 - **Escape** — Close the preview
 - **Right-click → Quick Look** — Context menu entry
 - **Right-click → Quick Look Contact Sheet** — Context menu entry for contact sheet
 - Works with PDFs, images, HTML, and any file type that macOS QuickLook supports
-- Selecting a parent item previews its first child attachment
+- Selecting a parent item previews its PDF attachment; falls back to the first available attachment if no PDF exists
 - Notes are rendered as HTML and previewed
 - Synced files that aren't downloaded locally are fetched automatically
 
